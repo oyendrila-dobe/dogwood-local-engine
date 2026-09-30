@@ -19,7 +19,13 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    strategy:
+      # Let every OS leg finish so a probe run reports all platforms' failures,
+      # not just the first to break.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     # Full debug info fills the runner's disk before the doctests link.
     env:
@@ -57,5 +63,6 @@ jobs:
         run: cargo test --workspace
 
       - name: Disk usage
-        if: always()
+        # df/du are Unix-only; skip on the Windows runner.
+        if: always() && runner.os != 'Windows'
         run: df -h / && du -sh target
