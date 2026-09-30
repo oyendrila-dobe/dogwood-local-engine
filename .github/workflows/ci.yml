@@ -56,30 +56,31 @@ jobs:
             ~/.cargo/git
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
 
-      - name: Build
-        # Unix (ubuntu, macOS): build the whole workspace.
-        if: runner.os != 'Windows'
+      # dogwood-server is Linux-only. It compiles on any Unix (it uses Unix
+      # domain sockets), but its control-plane trust boundary attests the peer's
+      # credentials via SO_PEERCRED, which is implemented only for Linux; on
+      # macOS peer attestation fails closed, so the server is non-functional and
+      # its tests cannot pass there. On Windows it does not even compile
+      # (std::os::unix has no Windows equivalent). dogwood-performance depends on
+      # dogwood-server and is excluded for the same reason. Only Linux builds and
+      # tests the full workspace; macOS and Windows cover the portable engine
+      # (dogwood-local-engine). Supporting the server off Linux would need macOS
+      # getpeereid/LOCAL_PEERCRED attestation and a Windows named-pipe transport,
+      # each a separate, security-sensitive change.
+      - name: Build (Linux — full workspace)
+        if: runner.os == 'Linux'
         run: cargo build --workspace --all-targets
 
-      - name: Test
-        if: runner.os != 'Windows'
+      - name: Test (Linux — full workspace)
+        if: runner.os == 'Linux'
         run: cargo test --workspace
 
-      # dogwood-server is Unix-specific: its transport and control-plane
-      # security boundary are built on Unix domain sockets
-      # (std::os::unix::net::UnixStream) and kernel peer credentials
-      # (SO_PEERCRED), neither of which exists on Windows, so the crate cannot
-      # compile there. dogwood-performance depends on dogwood-server and is
-      # excluded for the same reason. The portable engine (dogwood-local-engine)
-      # is still built and tested on Windows. To cover the server on Windows it
-      # would need a Windows transport (e.g. named pipes) behind a #[cfg]; until
-      # then it is Unix-only by design.
-      - name: Build (Windows — exclude Unix-only crates)
-        if: runner.os == 'Windows'
+      - name: Build (macOS/Windows — exclude Linux-only crates)
+        if: runner.os != 'Linux'
         run: cargo build --workspace --all-targets --exclude dogwood-server --exclude dogwood-performance
 
-      - name: Test (Windows — exclude Unix-only crates)
-        if: runner.os == 'Windows'
+      - name: Test (macOS/Windows — exclude Linux-only crates)
+        if: runner.os != 'Linux'
         run: cargo test --workspace --exclude dogwood-server --exclude dogwood-performance
 
       - name: Disk usage (Unix)
