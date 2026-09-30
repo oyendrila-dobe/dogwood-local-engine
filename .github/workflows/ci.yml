@@ -82,7 +82,23 @@ jobs:
         if: runner.os == 'Windows'
         run: cargo test --workspace --exclude dogwood-server --exclude dogwood-performance
 
-      - name: Disk usage
-        # df/du are Unix-only; skip on the Windows runner.
+      - name: Disk usage (Unix)
+        # df/du are Unix-only; the Windows equivalent is a separate step below.
         if: always() && runner.os != 'Windows'
         run: df -h / && du -sh target
+
+      - name: Disk usage (Windows)
+        # PowerShell equivalent of `df -h /` (drive free/used) and `du -sh target`
+        # (recursive size of the build dir). `target` may not exist if the build
+        # step failed early, so guard it.
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem | Format-Table Name, Used, Free
+          if (Test-Path target) {
+            $bytes = (Get-ChildItem target -Recurse -File -ErrorAction SilentlyContinue |
+              Measure-Object -Property Length -Sum).Sum
+            "target: {0:N2} GB" -f ($bytes / 1GB)
+          } else {
+            "target: (absent)"
+          }
