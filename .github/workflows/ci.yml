@@ -57,10 +57,30 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
 
       - name: Build
+        # Unix (ubuntu, macOS): build the whole workspace.
+        if: runner.os != 'Windows'
         run: cargo build --workspace --all-targets
 
       - name: Test
+        if: runner.os != 'Windows'
         run: cargo test --workspace
+
+      # dogwood-server is Unix-specific: its transport and control-plane
+      # security boundary are built on Unix domain sockets
+      # (std::os::unix::net::UnixStream) and kernel peer credentials
+      # (SO_PEERCRED), neither of which exists on Windows, so the crate cannot
+      # compile there. dogwood-performance depends on dogwood-server and is
+      # excluded for the same reason. The portable engine (dogwood-local-engine)
+      # is still built and tested on Windows. To cover the server on Windows it
+      # would need a Windows transport (e.g. named pipes) behind a #[cfg]; until
+      # then it is Unix-only by design.
+      - name: Build (Windows — exclude Unix-only crates)
+        if: runner.os == 'Windows'
+        run: cargo build --workspace --all-targets --exclude dogwood-server --exclude dogwood-performance
+
+      - name: Test (Windows — exclude Unix-only crates)
+        if: runner.os == 'Windows'
+        run: cargo test --workspace --exclude dogwood-server --exclude dogwood-performance
 
       - name: Disk usage
         # df/du are Unix-only; skip on the Windows runner.
