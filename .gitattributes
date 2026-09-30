@@ -1,0 +1,13 @@
+# Test fixtures and golden files are byte-exact inputs and expected outputs.
+# They must keep LF line endings on every platform, otherwise Git's autocrlf on
+# Windows rewrites them to CRLF and breaks byte/line comparisons (e.g. the
+# wide_count_e2e expected-verdict stream). Pin them to LF regardless of client
+# core.autocrlf settings.
+*.dw            text eol=lf
+*.dwschema      text eol=lf
+*.cedarschema   text eol=lf
+*.log           text eol=lf
+expected.txt    text eol=lf
+
+# Belt and suspenders: force LF for everything under test fixture trees.
+**/tests/fixtures/**   text eol=lf
